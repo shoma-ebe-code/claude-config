@@ -1,0 +1,1 @@
+/mnt/c/Users/ojita/.claude/CLAUDE.md

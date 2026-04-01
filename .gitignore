@@ -1,0 +1,28 @@
+# 認証・シークレット
+.credentials.json
+mcp-needs-auth-cache.json
+
+# マシン固有設定（パーミッション・ローカルパス）
+settings.json
+settings.local.json
+
+# 自動生成・キャッシュ（再現不要）
+projects/
+sessions/
+session-env/
+shell-snapshots/
+file-history/
+history.jsonl
+paste-cache/
+cache/
+backups/
+tasks/
+telemetry/
+plugins/
+agents/
+__pycache__/
+*.pyc
+
+# ログ（cost.logは管理しない。スキーマはlib.shが定義）
+cost.log
+known-failures-staging.log
