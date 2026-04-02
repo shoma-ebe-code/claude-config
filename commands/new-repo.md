@@ -14,11 +14,11 @@
 
 ### 2. ディレクトリの準備
 
-作成先は `/mnt/c/Users/ojita/` 配下とする。
+作成先は `/home/ojita/` 配下とする。
 既存ディレクトリがある場合は上書き前に確認する。
 
 ```
-/mnt/c/Users/ojita/[リポジトリ名]/
+/home/ojita/[リポジトリ名]/
 ```
 
 ### 3. テンプレートファイルのコピー
@@ -55,11 +55,10 @@
 
 ### 5. git 初期化
 
-**WSL環境なので `git.exe` を使う:**
 ```
-git.exe -C 'C:\Users\ojita\[リポジトリ名]' init
-git.exe -C 'C:\Users\ojita\[リポジトリ名]' add CLAUDE.md .clauderules .claudeignore .gitignore README.md .claude/
-git.exe -C 'C:\Users\ojita\[リポジトリ名]' -c user.name="ojita" -c user.email="ojita@users.noreply.github.com" commit -m "chore: リポジトリ初期化（テンプレートから生成）"
+git -C '/home/ojita/[リポジトリ名]' init
+git -C '/home/ojita/[リポジトリ名]' add CLAUDE.md .clauderules .claudeignore .gitignore README.md .claude/
+git -C '/home/ojita/[リポジトリ名]' -c user.name="ojita" -c user.email="ojita@users.noreply.github.com" commit -m "chore: リポジトリ初期化（テンプレートから生成）"
 ```
 
 ### 6. 完了報告
@@ -72,4 +71,4 @@ git.exe -C 'C:\Users\ojita\[リポジトリ名]' -c user.name="ojita" -c user.em
 
 - `CLAUDE.local.md` は `.gitignore` に含まれているので Git 管理外になる
 - テンプレートを変更したい場合は `/home/ojita/.claude/templates/` を直接編集する
-- GitHub リポジトリも作成する場合は `gh.exe repo create` を使う（SSH不要のHTTPS推奨）
+- GitHub リポジトリも作成する場合は `gh repo create` を使う（SSH不要のHTTPS推奨）

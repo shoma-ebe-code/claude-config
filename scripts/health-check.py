@@ -5,10 +5,10 @@
 AIのクリエイティビティが不要な「存在確認」「整合性チェック」を担当。
 
 使い方:
-  python3 health-check.py /mnt/c/Users/ojita/content-pipeline         # 単体チェック
+  python3 health-check.py /home/ojita/content-pipeline         # 単体チェック
   python3 health-check.py --all                                         # 全リポジトリ
-  python3 health-check.py /mnt/c/Users/ojita/content-pipeline --format json
-  python3 health-check.py /mnt/c/Users/ojita/content-pipeline --fix     # 不足ディレクトリを自動作成
+  python3 health-check.py /home/ojita/content-pipeline --format json
+  python3 health-check.py /home/ojita/content-pipeline --fix     # 不足ディレクトリを自動作成
 """
 
 import argparse
@@ -22,10 +22,10 @@ from pathlib import Path
 # --- リポジトリ定義 ---
 
 REPOS = {
-    "my-freelance-sre": "/mnt/c/Users/ojita/my-freelance-sre",
-    "content-pipeline": "/mnt/c/Users/ojita/content-pipeline",
-    "lol-guides-jp": "/mnt/c/Users/ojita/lol-guides-jp",
-    "zenn-content": "/mnt/c/Users/ojita/zenn-content",
+    "my-freelance-sre": "/home/ojita/my-freelance-sre",
+    "content-pipeline": "/home/ojita/content-pipeline",
+    "lol-guides-jp": "/home/ojita/lol-guides-jp",
+    "zenn-content": "/home/ojita/zenn-content",
 }
 
 # --- チェック結果 ---

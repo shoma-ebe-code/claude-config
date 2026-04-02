@@ -6,7 +6,7 @@
 
 ### STEP 1: ベストプラクティス最新化
 
-1. `/mnt/c/Users/ojita/my-freelance-sre/01-admin-setup/MyBestPractices.md` を読み、各セクションの内容を把握する
+1. `/home/ojita/my-freelance-sre/01-admin-setup/MyBestPractices.md` を読み、各セクションの内容を把握する
 
 2. 以下のクエリで WebSearch を実行する（各1〜2件、要点だけ抽出）:
 
