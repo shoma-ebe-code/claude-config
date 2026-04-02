@@ -60,6 +60,28 @@ echo "${LOG_PREFIX} ===== 処理完了 ====="
 | ローカル変数 | `lower_snake_case` + `local` 宣言 | `local cmd_name="$1"` |
 | プロジェクトDIR | `PROJECT_DIR` に統一 | ~~`PIPELINE_DIR`~~ ~~`GUIDE_DIR`~~ |
 
+### 成功判定: exit code だけでなく成果物を検証する
+
+外部プロセス（`claude --print`、API呼び出し等）の結果は exit code 0 でも期待する成果物が生成されていない場合がある。
+処理の成功判定は「コマンドが正常終了したか」ではなく「期待する状態になったか」で行う。
+
+```bash
+# NG: exit code だけ見る
+if run_cmd "research"; then
+    echo "完了"
+fi
+
+# OK: 成果物の存在を検証する
+if run_cmd "research"; then
+    if [ -f "${expected_file}" ]; then
+        echo "完了"
+    else
+        echo "ERROR: コマンドは成功したが成果物が生成されていない"
+        exit 1
+    fi
+fi
+```
+
 ---
 
 ## 2. lib.sh パターン（拡張性設計）

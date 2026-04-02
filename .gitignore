@@ -6,6 +6,9 @@ mcp-needs-auth-cache.json
 settings.json
 settings.local.json
 
+# メモリ（個人情報を含む）
+memory/
+
 # 一時ファイル・ローカルデータ
 image-cache/
 plans/
