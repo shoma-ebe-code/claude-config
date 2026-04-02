@@ -6,9 +6,10 @@ mcp-needs-auth-cache.json
 settings.json
 settings.local.json
 
-# 一時ファイル
+# 一時ファイル・ローカルデータ
 image-cache/
 plans/
+data/
 
 # 自動生成・キャッシュ（再現不要）
 projects/
