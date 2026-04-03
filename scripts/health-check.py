@@ -50,6 +50,29 @@ def check_dir_exists(path: str, name: str, fixable: bool = True) -> Check:
                  detail=path if not exists else "", fixable=fixable)
 
 
+# --- 憲法ルール準拠チェック ---
+
+def check_scripts_dry_run(repo_path: str) -> list[Check]:
+    """scripts/*.sh に --dry-run 実装があるか確認（lib.sh は除外）"""
+    results = []
+    scripts_dir = Path(repo_path) / "scripts"
+    if not scripts_dir.is_dir():
+        return results
+
+    for sh in sorted(scripts_dir.glob("*.sh")):
+        if sh.name == "lib.sh":
+            continue
+        content = sh.read_text(encoding="utf-8", errors="ignore")
+        has_dry_run = "DRY_RUN" in content
+        results.append(Check(
+            name=f"dry-run: scripts/{sh.name}",
+            passed=has_dry_run,
+            detail="" if has_dry_run else "--dry-run 未実装",
+        ))
+
+    return results
+
+
 # --- 共通チェック（全リポジトリ） ---
 
 def check_common(repo_path: str) -> list[Check]:
@@ -90,6 +113,9 @@ def check_common(repo_path: str) -> list[Check]:
         ))
     except (subprocess.TimeoutExpired, FileNotFoundError):
         results.append(Check(name="コンフリクトマーカー", passed=True, detail="検索スキップ"))
+
+    # 憲法ルール: scripts/ の --dry-run 実装
+    results.extend(check_scripts_dry_run(repo_path))
 
     return results
 
