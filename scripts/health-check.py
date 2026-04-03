@@ -215,6 +215,20 @@ def check_lol(repo_path: str) -> list[Check]:
     results.append(check_file_exists(str(p / "TODO.md"), "FILE: TODO.md"))
     results.append(check_dir_exists(str(p / "champions"), "DIR: champions"))
     results.append(check_dir_exists(str(p / "scripts"), "DIR: scripts"))
+    results.append(check_file_exists(str(p / "current-patch.txt"), "FILE: current-patch.txt"))
+    results.append(check_dir_exists(str(p / "patches"), "DIR: patches"))
+
+    # cron チェック
+    try:
+        cron = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=5)
+        found = "check-patch.sh" in cron.stdout
+        results.append(Check(
+            name="cron: check-patch.sh",
+            passed=found,
+            detail="" if found else "crontabに未登録",
+        ))
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        results.append(Check(name="cron: check-patch.sh", passed=False, detail="crontab実行失敗"))
 
     # チャンピオン数カウント
     champions_dir = p / "champions"
