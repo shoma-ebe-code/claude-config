@@ -46,6 +46,7 @@ L1/L2/L4でできることをL3にやらせるな。
 - コード生成・修正後は `/simplify` を1回かける
 - **コマンド失敗→ `~/.claude/known-failures-staging.md` に雑メモ。セッション終了時に `known-failures.md` へ整理・統合。Bash実行前に `known-failures.md` を確認**
 - 設定変更・コード修正後はドライランで稼働確認→問題なければ git push を提案。スクリプトには必ずドライランモード（`--dry-run` フラグ or 出力確認のみの実行）を実装する
+- **通知はCLAUDE.local.mdへの記録で行う。Windows通知（PowerShell等）は使わない**
 
 ## 情報鮮度基準
 

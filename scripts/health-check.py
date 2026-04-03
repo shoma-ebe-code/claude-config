@@ -6,9 +6,11 @@ AIのクリエイティビティが不要な「存在確認」「整合性チェ
 
 使い方:
   python3 health-check.py /home/ojita/content-pipeline         # 単体チェック
-  python3 health-check.py --all                                         # 全リポジトリ
+  python3 health-check.py --all                                 # 全リポジトリ
+  python3 health-check.py --all --output /path/to/report.txt   # ファイル出力
   python3 health-check.py /home/ojita/content-pipeline --format json
-  python3 health-check.py /home/ojita/content-pipeline --fix     # 不足ディレクトリを自動作成
+  python3 health-check.py /home/ojita/content-pipeline --fix   # 不足ディレクトリを自動作成
+  python3 health-check.py /home/ojita/content-pipeline --dry-run  # 確認のみ
 """
 
 import argparse
@@ -16,7 +18,8 @@ import json
 import os
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 # --- リポジトリ定義 ---
@@ -27,6 +30,22 @@ REPOS = {
     "lol-guides-jp": "/home/ojita/lol-guides-jp",
     "zenn-content": "/home/ojita/zenn-content",
 }
+
+GLOBAL_TOOLS = ["cost-report.py", "lint-ai-style.py", "health-check.py"]
+
+# --- 憲法ルール目録（L5 Meta）---
+# CLAUDE.md の機械チェック可能なルールをここで宣言する。
+# 新しい憲法ルールを追加したら:
+#   (1) ここにエントリ追加 → (2) 対応実装の近くに # RULE: <id> コメント追加
+CONSTITUTION_RULE_IDS = [
+    "dry_run",          # スクリプトには --dry-run モードを実装する
+    "set_euo_pipefail", # Bash スクリプトには set -euo pipefail を書く
+    "git_https",        # Git remote は HTTPS を使う（SSH不可）
+    "style_rules",      # .clauderules に STYLE RULES セクションを持つ
+    "l1_tools",         # ~/.claude/scripts/ に L1 ツールが存在する
+    "known_failures",   # known-failures.md が存在する
+]
+
 
 # --- チェック結果 ---
 
@@ -50,9 +69,9 @@ def check_dir_exists(path: str, name: str, fixable: bool = True) -> Check:
                  detail=path if not exists else "", fixable=fixable)
 
 
-# --- 憲法ルール準拠チェック ---
+# --- 憲法ルール準拠チェック（共通） ---
 
-def check_scripts_dry_run(repo_path: str) -> list[Check]:
+def check_scripts_dry_run(repo_path: str) -> list[Check]:  # RULE: dry_run
     """scripts/*.sh に --dry-run 実装があるか確認（lib.sh は除外）"""
     results = []
     scripts_dir = Path(repo_path) / "scripts"
@@ -73,6 +92,111 @@ def check_scripts_dry_run(repo_path: str) -> list[Check]:
     return results
 
 
+def check_scripts_set_e(repo_path: str) -> list[Check]:  # RULE: set_euo_pipefail
+    """scripts/*.sh に set -euo pipefail があるか確認（lib.sh は除外）"""
+    results = []
+    scripts_dir = Path(repo_path) / "scripts"
+    if not scripts_dir.is_dir():
+        return results
+
+    for sh in sorted(scripts_dir.glob("*.sh")):
+        if sh.name == "lib.sh":
+            continue
+        content = sh.read_text(encoding="utf-8", errors="ignore")
+        has_set_e = "set -euo pipefail" in content
+        results.append(Check(
+            name=f"set -euo pipefail: scripts/{sh.name}",
+            passed=has_set_e,
+            detail="" if has_set_e else "set -euo pipefail なし",
+        ))
+
+    return results
+
+
+def check_git_https(repo_path: str) -> Check:  # RULE: git_https
+    """Git remote が HTTPS か確認"""
+    try:
+        result = subprocess.run(
+            ["git", "-C", repo_path, "remote", "-v"],
+            capture_output=True, text=True, timeout=5)
+        if not result.stdout.strip():
+            return Check(name="Git remote HTTPS", passed=False, detail="remote未設定")
+        is_https = "https://" in result.stdout
+        return Check(
+            name="Git remote HTTPS",
+            passed=is_https,
+            detail="" if is_https else "SSH使用（HTTPSに変更推奨）",
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return Check(name="Git remote HTTPS", passed=False, detail="git実行失敗")
+
+
+# --- メタチェック（health-check.py 自身の憲法準拠） ---
+
+def check_self_coverage() -> list[Check]:
+    """health-check.py 自身が全憲法ルールをカバーしているか確認"""
+    results = []
+    self_src = Path(__file__).read_text(encoding="utf-8")
+
+    # --dry-run フラグの実装確認
+    results.append(Check(
+        name="self: --dry-run 実装",
+        passed="args.dry_run" in self_src,
+        detail="" if "args.dry_run" in self_src else "health-check.py 自身に --dry-run がない",
+    ))
+
+    # 各憲法ルールに対応する # RULE: <id> アノテーションの存在確認
+    for rule_id in CONSTITUTION_RULE_IDS:
+        marker = f"# RULE: {rule_id}"
+        has_impl = marker in self_src
+        results.append(Check(
+            name=f"self: RULE:{rule_id}",
+            passed=has_impl,
+            detail="" if has_impl else f"'{marker}' アノテーションなし → 実装漏れの可能性",
+        ))
+
+    return results
+
+
+# --- グローバルチェック（~/.claude/ 全体） ---
+
+def check_global() -> dict:
+    """L1ツール・グローバル設定の存在確認"""
+    results = []
+    scripts_dir = Path.home() / ".claude" / "scripts"
+
+    for tool in GLOBAL_TOOLS:  # RULE: l1_tools
+        path = scripts_dir / tool
+        results.append(Check(
+            name=f"L1ツール: {tool}",
+            passed=path.exists(),
+            detail=str(path) if not path.exists() else "",
+        ))
+
+    kf = Path.home() / ".claude" / "known-failures.md"  # RULE: known_failures
+    results.append(Check(
+        name="known-failures.md",
+        passed=kf.exists(),
+        detail=str(kf) if not kf.exists() else "",
+    ))
+
+    # メタチェック: health-check.py 自身の憲法準拠
+    results.extend(check_self_coverage())
+
+    passed = [r for r in results if r.passed]
+    failed = [r for r in results if not r.passed]
+
+    return {
+        "repo": "global (~/.claude)",
+        "path": str(Path.home() / ".claude"),
+        "total": len(results),
+        "passed": len(passed),
+        "failed": len(failed),
+        "fixed": [],
+        "checks": [{"name": r.name, "passed": r.passed, "detail": r.detail} for r in results],
+    }
+
+
 # --- 共通チェック（全リポジトリ） ---
 
 def check_common(repo_path: str) -> list[Check]:
@@ -82,8 +206,23 @@ def check_common(repo_path: str) -> list[Check]:
     # 必須ファイル
     results.append(check_file_exists(str(p / "CLAUDE.md"), "CLAUDE.md"))
     results.append(check_file_exists(str(p / "README.md"), "README.md"))
-    results.append(check_file_exists(str(p / ".clauderules"), ".clauderules"))
+
+    clauderules = p / ".clauderules"
+    results.append(check_file_exists(str(clauderules), ".clauderules"))
+    if clauderules.exists():
+        content = clauderules.read_text(encoding="utf-8", errors="ignore")
+        results.append(Check(  # RULE: style_rules
+            name=".clauderules STYLE RULES",
+            passed="STYLE RULES" in content,
+            detail="" if "STYLE RULES" in content else "STYLE RULESセクションなし",
+        ))
+
     results.append(check_file_exists(str(p / ".claudeignore"), ".claudeignore"))
+
+    # scripts/lib.sh（scriptsディレクトリがある場合）
+    scripts_dir = p / "scripts"
+    if scripts_dir.is_dir():
+        results.append(check_file_exists(str(scripts_dir / "lib.sh"), "scripts/lib.sh"))
 
     # Git状態
     try:
@@ -98,6 +237,9 @@ def check_common(repo_path: str) -> list[Check]:
         ))
     except (subprocess.TimeoutExpired, FileNotFoundError):
         results.append(Check(name="Git状態", passed=False, detail="git実行失敗"))
+
+    # Git remote HTTPS（known-failures.md に明記されている共通ルール）
+    results.append(check_git_https(repo_path))
 
     # コンフリクトマーカー
     try:
@@ -114,8 +256,9 @@ def check_common(repo_path: str) -> list[Check]:
     except (subprocess.TimeoutExpired, FileNotFoundError):
         results.append(Check(name="コンフリクトマーカー", passed=True, detail="検索スキップ"))
 
-    # 憲法ルール: scripts/ の --dry-run 実装
+    # 憲法ルール: scripts/ の --dry-run / set -euo pipefail 実装
     results.extend(check_scripts_dry_run(repo_path))
+    results.extend(check_scripts_set_e(repo_path))
 
     return results
 
@@ -146,25 +289,24 @@ def check_pipeline(repo_path: str) -> list[Check]:
     for c in configs:
         results.append(check_file_exists(str(p / c), f"FILE: {c}"))
 
-    # agents/ と commands/ の整合性
+    # agents/ と commands/ の整合性（未参照agentを検出）
     agents_dir = p / ".claude" / "agents"
     commands_dir = p / ".claude" / "commands"
     if agents_dir.is_dir() and commands_dir.is_dir():
         agents = {f.stem for f in agents_dir.glob("*.md")}
-        commands = {f.stem for f in commands_dir.glob("*.md")}
-        # コマンドが参照するエージェント名をチェック（簡易: ファイル内の "エージェントとして" を検索）
-        for cmd_file in commands_dir.glob("*.md"):
-            content = cmd_file.read_text(encoding="utf-8", errors="ignore")
-            for agent_name in agents:
-                if f"{agent_name}エージェントとして" in content:
-                    break
+        cmd_files = list(commands_dir.glob("*.md"))
+        all_cmd_text = "\n".join(
+            f.read_text(encoding="utf-8", errors="ignore") for f in cmd_files
+        )
+        unreferenced = {a for a in agents if f"{a}エージェントとして" not in all_cmd_text}
         results.append(Check(
             name="agents/commands整合性",
-            passed=True,
-            detail=f"agents: {len(agents)}, commands: {len(commands)}",
+            passed=len(unreferenced) == 0,
+            detail=f"未参照agent: {', '.join(sorted(unreferenced))}" if unreferenced
+                   else f"agents: {len(agents)}, commands: {len(cmd_files)}",
         ))
 
-    # crontabチェック
+    # crontabチェック（登録有無 + スクリプトファイル存在）
     try:
         cron = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=5)
         cron_text = cron.stdout
@@ -173,11 +315,17 @@ def check_pipeline(repo_path: str) -> list[Check]:
             "morning-report.sh", "weekly-strategy.sh",
         ]
         for script in expected_scripts:
-            found = script in cron_text
+            in_cron = script in cron_text
             results.append(Check(
-                name=f"cron: {script}",
-                passed=found,
-                detail="" if found else "crontabに未登録",
+                name=f"cron登録: {script}",
+                passed=in_cron,
+                detail="" if in_cron else "crontabに未登録",
+            ))
+            script_path = p / "scripts" / script
+            results.append(Check(
+                name=f"cronファイル: {script}",
+                passed=script_path.exists(),
+                detail="" if script_path.exists() else "ファイルが存在しない",
             ))
     except (subprocess.TimeoutExpired, FileNotFoundError):
         results.append(Check(name="crontab", passed=False, detail="crontab実行失敗"))
@@ -218,14 +366,20 @@ def check_lol(repo_path: str) -> list[Check]:
     results.append(check_file_exists(str(p / "current-patch.txt"), "FILE: current-patch.txt"))
     results.append(check_dir_exists(str(p / "patches"), "DIR: patches"))
 
-    # cron チェック
+    # cron チェック（登録有無 + スクリプトファイル存在）
     try:
         cron = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=5)
-        found = "check-patch.sh" in cron.stdout
+        in_cron = "check-patch.sh" in cron.stdout
         results.append(Check(
-            name="cron: check-patch.sh",
-            passed=found,
-            detail="" if found else "crontabに未登録",
+            name="cron登録: check-patch.sh",
+            passed=in_cron,
+            detail="" if in_cron else "crontabに未登録",
+        ))
+        script_path = p / "scripts" / "check-patch.sh"
+        results.append(Check(
+            name="cronファイル: check-patch.sh",
+            passed=script_path.exists(),
+            detail="" if script_path.exists() else "ファイルが存在しない",
         ))
     except (subprocess.TimeoutExpired, FileNotFoundError):
         results.append(Check(name="cron: check-patch.sh", passed=False, detail="crontab実行失敗"))
@@ -252,26 +406,6 @@ def check_zenn(repo_path: str) -> list[Check]:
     results.append(check_dir_exists(str(p / "articles"), "DIR: articles"))
     results.append(check_dir_exists(str(p / "books"), "DIR: books"))
 
-    # リモートURL
-    try:
-        result = subprocess.run(
-            ["git", "-C", repo_path, "remote", "-v"],
-            capture_output=True, text=True, timeout=5)
-        has_remote = bool(result.stdout.strip())
-        is_https = "https://" in result.stdout
-        results.append(Check(
-            name="Git remote",
-            passed=has_remote,
-            detail=result.stdout.strip().split("\n")[0] if has_remote else "未設定",
-        ))
-        results.append(Check(
-            name="HTTPS remote",
-            passed=is_https,
-            detail="" if is_https else "HTTPSに変更推奨",
-        ))
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        results.append(Check(name="Git remote", passed=False, detail="git実行失敗"))
-
     return results
 
 
@@ -281,7 +415,6 @@ def run_checks(repo_path: str, fix: bool = False) -> dict:
     repo_name = Path(repo_path).name
     results = check_common(repo_path)
 
-    # リポジトリ別チェック
     if "content-pipeline" in repo_name:
         results.extend(check_pipeline(repo_path))
     elif "freelance-sre" in repo_name:
@@ -291,7 +424,6 @@ def run_checks(repo_path: str, fix: bool = False) -> dict:
     elif "zenn-content" in repo_name:
         results.extend(check_zenn(repo_path))
 
-    # 自動修復
     fixed = []
     if fix:
         for r in results:
@@ -321,7 +453,7 @@ def format_text(report: dict) -> str:
     status = "PASS" if report["failed"] == 0 else "FAIL"
     lines = [f"[{status}] {report['repo']} — {report['passed']}/{report['total']}"]
 
-    if report["fixed"]:
+    if report.get("fixed"):
         lines.append(f"  自動修復: {', '.join(report['fixed'])}")
 
     failed = [c for c in report["checks"] if not c["passed"]]
@@ -340,34 +472,73 @@ def main():
     parser.add_argument("--all", action="store_true", help="全リポジトリをチェック")
     parser.add_argument("--format", choices=["text", "json"], default="text")
     parser.add_argument("--fix", action="store_true", help="不足ディレクトリを自動作成")
+    parser.add_argument("--dry-run", action="store_true", dest="dry_run",
+                        help="修正は行わず確認のみ（--fixを無効化）")
+    parser.add_argument("--output", metavar="FILE",
+                        help="結果をファイルに出力（省略時はstdout）")
     args = parser.parse_args()
 
+    if args.dry_run and args.fix:
+        print("--dry-run が指定されているため --fix は無効です")
+        args.fix = False
+
     if not args.path and not args.all:
-        # カレントディレクトリを使用
         args.path = os.getcwd()
 
-    targets = list(REPOS.values()) if args.all else [args.path]
-    reports = []
+    # グローバルチェック（常に実行）
+    reports = [check_global()]
 
+    targets = list(REPOS.values()) if args.all else [args.path]
     for target in targets:
         if not Path(target).is_dir():
             reports.append({"repo": target, "error": "ディレクトリが存在しない"})
             continue
         reports.append(run_checks(target, fix=args.fix))
 
+    # 出力生成
     if args.format == "json":
-        print(json.dumps(reports if len(reports) > 1 else reports[0],
-                         ensure_ascii=False, indent=2))
+        output = json.dumps(reports, ensure_ascii=False, indent=2)
     else:
+        lines = []
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        lines.append(f"# health-check {timestamp}")
+        lines.append("")
         for r in reports:
             if "error" in r:
-                print(f"[ERROR] {r['repo']}: {r['error']}")
+                lines.append(f"[ERROR] {r['repo']}: {r['error']}")
             else:
-                print(format_text(r))
-            if len(reports) > 1:
-                print()
+                lines.append(format_text(r))
+            lines.append("")
+        output = "\n".join(lines).rstrip()
 
-    # 不合格があればexit 1
+    # ファイル or stdout
+    latest = Path.home() / ".claude" / "reports" / "health-check-latest.txt"
+    if args.output:
+        Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.output).write_text(output + "\n", encoding="utf-8")
+        # latest も常に更新
+        latest.parent.mkdir(parents=True, exist_ok=True)
+        latest.write_text(output + "\n", encoding="utf-8")
+    else:
+        print(output)
+
+    # self: チェック失敗 → CLAUDE.local.md に通知（ログパス付き）
+    if not args.dry_run:
+        self_failures = [
+            c["name"] for r in reports
+            for c in r.get("checks", [])
+            if not c["passed"] and c["name"].startswith("self:")
+        ]
+        if self_failures:
+            log_path = str(args.output) if args.output else str(latest)
+            msg = (
+                f"- [WARN] health-check.py 憲法違反 ({datetime.now().strftime('%Y-%m-%d')}): "
+                f"{', '.join(self_failures)} -> 詳細: {log_path}\n"
+            )
+            local_md = Path.home() / "CLAUDE.local.md"
+            with local_md.open("a", encoding="utf-8") as f:
+                f.write(msg)
+
     if any(r.get("failed", 0) > 0 for r in reports):
         sys.exit(1)
 
