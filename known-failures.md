@@ -67,10 +67,6 @@ json=$(run_cmd "cmd") || { echo "ERROR: cmd 失敗"; exit 1; }
 if [ -z "$json" ]; then ...
 ```
 
-## WSLのDNS障害
-
-症状: `github.com` が解決できない → **別ターミナル（WSLセッション）を開けば通ることが多い。**
-
 ## dispatch_ops: JSONをコードフェンスで囲んで返すモデル
 
 症状: `SyntaxError: Unexpected token '`'` — haiku 等が JSON を ` ```json ``` ` で囲んで返す。
