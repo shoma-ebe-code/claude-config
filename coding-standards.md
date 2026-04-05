@@ -108,6 +108,19 @@ fi
 - frontmatter の `model:` を抽出して `claude --print` に渡す
 - 参照実装: `content-pipeline/scripts/lib.sh`
 
+### run_cmd 用コマンドファイルのプロンプト要件
+
+`run_cmd` から呼ばれるコマンド（`.claude/commands/*.md`）は以下を明記する：
+
+- Write/Edit ツールは使用しない
+- `--print` モードの標準出力として JSON を返す
+- ファイルへの書き込みは呼び出し元の `dispatch_ops` が行う
+
+```markdown
+Write/Edit ツールは使用しない。代わりに `--print` モードの標準出力として以下の JSON を返す。
+ファイルへの書き込みはこのシステムが行う。説明文・前置き・理由は一切出力しない。
+```
+
 ---
 
 ## 3. Markdown ドキュメント

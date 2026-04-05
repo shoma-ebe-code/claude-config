@@ -67,6 +67,18 @@ json=$(run_cmd "cmd") || { echo "ERROR: cmd 失敗"; exit 1; }
 if [ -z "$json" ]; then ...
 ```
 
+## settings.json の Write(**) が --allowed-tools を貫通する
+
+症状: `claude --print --allowed-tools "Read,Glob"` と指定しても、`settings.json` に `Write(**)` があると子プロセスが Write ツールを使える。
+原因: `permissions.allow` はツールの自動承認を制御し、`--allowed-tools` より優先される。
+対処: `settings.json` から `Write(**)` / `Edit(**)` を削除し、対話セッション用に `PermissionRequest` hook で自動承認する。
+
+## --print モードでは Write が自動承認されない
+
+`claude --print`（非対話）モードでは、`settings.json` に `Write(**)` がなければ Write ツールは拒否される。
+`PermissionRequest` hook も非対話モードでは動作しない。
+→ この性質を利用して、`settings.json` から `Write(**)` を外すことでサブプロセスの Write を抑制できる。
+
 ## dispatch_ops: JSONをコードフェンスで囲んで返すモデル
 
 症状: `SyntaxError: Unexpected token '`'` — haiku 等が JSON を ` ```json ``` ` で囲んで返す。
