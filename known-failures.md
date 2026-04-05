@@ -71,7 +71,11 @@ if [ -z "$json" ]; then ...
 
 症状: `claude --print --allowed-tools "Read,Glob"` と指定しても、`settings.json` に `Write(**)` があると子プロセスが Write ツールを使える。
 原因: `permissions.allow` はツールの自動承認を制御し、`--allowed-tools` より優先される。
-対処: `settings.json` から `Write(**)` / `Edit(**)` を削除し、対話セッション用に `PermissionRequest` hook で自動承認する。
+対処:
+1. `settings.json` から `Write(**)` / `Edit(**)` を削除する
+2. 対話セッション用に `PermissionRequest` hook（`auto-approve-edit-write.sh`）で自動承認する
+3. サブプロセス（`run_cmd`）には `CLAUDE_SUBPROCESS=1` を付与し、hook が Write を明示的に deny する
+4. コマンドプロンプト冒頭に「使用可能なツール」を明示してモデルがWriteを使わないよう誘導する（→ coding-standards.md 参照）
 
 ## --print モードでは Write が自動承認されない
 
