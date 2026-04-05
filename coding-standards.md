@@ -66,21 +66,37 @@ echo "${LOG_PREFIX} ===== 処理完了 ====="
 処理の成功判定は「コマンドが正常終了したか」ではなく「期待する状態になったか」で行う。
 
 ```bash
-# NG: exit code だけ見る
-if run_cmd "research"; then
-    echo "完了"
+# NG: exit code だけ見る（set -e 環境では $? チェックに届かないことがある）
+json=$(run_cmd "research")
+if [ $? -ne 0 ] || [ -z "$json" ]; then
+    exit 1
 fi
 
-# OK: 成果物の存在を検証する
-if run_cmd "research"; then
-    if [ -f "${expected_file}" ]; then
-        echo "完了"
-    else
-        echo "ERROR: コマンドは成功したが成果物が生成されていない"
-        exit 1
-    fi
+# OK: || で失敗を捕捉し、成果物の存在も検証する
+json=$(run_cmd "research") || { echo "ERROR: research 失敗"; exit 1; }
+if [ -z "$json" ]; then
+    echo "ERROR: コマンドは成功したが結果が空"
+    exit 1
+fi
+if [ ! -f "${expected_file}" ]; then
+    echo "ERROR: コマンドは成功したが成果物が生成されていない"
+    exit 1
 fi
 ```
+
+---
+
+### デバッグ: 最小単位でテストする
+
+問題が発生したら「どの層が壊れているか」を特定し、その層だけを切り出してテストする。全体パイプラインを何度も動かさない。
+
+| 疑われる層 | テスト方法 |
+|---|---|
+| L1: `dispatch_ops` のパース | `echo` でサンプル JSON を直接渡す（API 不要） |
+| L3: モデル出力のフォーマット | API を1回だけ呼んでファイルに保存 → 以降はそのファイルをリプレイ |
+| L1: cron 環境・スクリプト全体 | `--dry-run` で確認 |
+
+全体パイプライン実行は「各層が単体で OK であることを確認した後」の最終確認に1回だけ。
 
 ---
 

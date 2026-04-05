@@ -1,6 +1,15 @@
 #!/bin/bash
 # SessionStart hook: CLAUDE.local.md の読み込みと staging log の通知
 
+# settings.json の JSON 構文チェック
+SETTINGS="$HOME/.claude/settings.json"
+if [ -f "$SETTINGS" ]; then
+  if ! python3 -m json.tool "$SETTINGS" > /dev/null 2>&1; then
+    echo "⚠️  settings.json が壊れています。セッション設定がスキップされています。"
+    echo "   修正してください: $SETTINGS"
+  fi
+fi
+
 # カレントディレクトリの CLAUDE.local.md を読む
 # /mnt/c/ 配下のパスは Windows パスに変換して確認
 LOCAL_MD=""

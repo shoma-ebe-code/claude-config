@@ -12,6 +12,11 @@ THRESHOLD=3
 SETTINGS="$HOME/.claude/settings.json"
 LOG="$HOME/.claude/data/bash-approved.log"
 
+# 複数行コマンドは自動昇格しない（settings.json に壊れたルールが入るのを防ぐ）
+if echo "$COMMAND" | grep -q $'\n'; then
+  exit 0
+fi
+
 # 先頭語を抽出
 HEAD=$(echo "$COMMAND" | awk '{print $1}')
 [[ -z "$HEAD" ]] && exit 0
