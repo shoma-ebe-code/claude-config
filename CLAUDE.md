@@ -46,7 +46,7 @@ L1/L2/L4でできることをL3にやらせるな。
 - コード生成・修正後は `/simplify` を1回かける
 - **コマンド失敗→ `~/.claude/known-failures-staging.md` に雑メモ。セッション終了時に `known-failures.md` へ整理・統合。Bash実行前に `known-failures.md` を確認**
 - 設定変更・コード修正後はドライランで稼働確認→問題なければ git push を提案。スクリプトには必ずドライランモード（`--dry-run` フラグ or 出力確認のみの実行）を実装する
-- **通知はCLAUDE.local.mdへの記録で行う。Windows通知（PowerShell等）は使わない**
+- **通知は `/home/ojita/CLAUDE.local.md`（総合秘書）への記録で行う。Windows通知（PowerShell等）は使わない。** cronなど定期実行の結果もここに集約する（成功・失敗問わず、ユーザーが確認すべきものがあれば記録）
 
 ## 情報鮮度基準
 
@@ -55,9 +55,10 @@ L1/L2/L4でできることをL3にやらせるな。
 
 ## セッション管理（Checkpointer）
 
-- 開始時: `CLAUDE.local.md` があれば引き継ぎメモを確認・冒頭で報告
+- **`/home/ojita/CLAUDE.local.md` は総合秘書（全リポジトリのタスクを統括）。各リポジトリの `CLAUDE.local.md` は専門秘書（そのリポジトリ固有のタスク＋環境情報）**
+- 開始時: `/home/ojita/CLAUDE.local.md` があれば引き継ぎメモを確認・冒頭で報告
 - 終了時・`/compact` 前:
-  1. 持ち越す情報を `CLAUDE.local.md` に3行以内で書き出す（完了済みは削除）
+  1. 持ち越す情報を `/home/ojita/CLAUDE.local.md`（総合）と作業リポジトリの `CLAUDE.local.md`（専門）の両方に書き出す（完了済みは削除）
   2. `known-failures-staging.md` があれば `known-failures.md` へ整理・統合
   3. 未使用の成果物（ファイル・パッケージ）がないか確認→削除
   4. ローカルメモリにグローバル昇格すべきもの・重複・陳腐化がないか確認→整理
