@@ -229,7 +229,9 @@ def check_common(repo_path: str) -> list[Check]:
         result = subprocess.run(
             ["git", "-C", repo_path, "status", "--porcelain"],
             capture_output=True, text=True, timeout=10)
-        uncommitted = len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
+        # ?? (untracked) は除外してステージ済み・未ステージの変更のみカウント
+        uncommitted = sum(1 for line in result.stdout.strip().split("\n")
+                          if line and not line.startswith("??")) if result.stdout.strip() else 0
         results.append(Check(
             name="未コミット変更",
             passed=uncommitted == 0,
@@ -272,8 +274,8 @@ def check_pipeline(repo_path: str) -> list[Check]:
     # 必須ディレクトリ
     dirs = [
         "drafts/ja", "drafts/en", "drafts/products",
-        "review_queue", "publish_queue/zenn", "publish_queue/substack",
-        "published/zenn", "published/substack", "published/booth",
+        "review_queue", "publish_queue/zenn",
+        "published/booth",
         "notes/incidents", "notes/learnings",
         "reports", "escalation", "ideas", "config",
         ".claude/agents", ".claude/commands",
