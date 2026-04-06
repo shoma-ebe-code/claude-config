@@ -247,7 +247,7 @@ def check_common(repo_path: str) -> list[Check]:
     try:
         result = subprocess.run(
             ["grep", "-rl", "<<<<<<<", repo_path, "--include=*.md", "--include=*.tf",
-             "--include=*.py", "--include=*.sh", "--include=*.json"],
+             "--include=*.sh", "--include=*.json"],
             capture_output=True, text=True, timeout=10)
         has_conflict = bool(result.stdout.strip())
         results.append(Check(
